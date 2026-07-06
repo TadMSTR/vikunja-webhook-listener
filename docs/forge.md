@@ -24,14 +24,32 @@ NTFY_TOPIC=<topic>
 # NTFY_TOKEN=...                   # only if the ntfy topic is protected
 ```
 
-Port `8502` (confirmed free 2026-07-06; re-check at deploy). Bound `0.0.0.0` so the SWAG
-container can reach the host process — same pattern as `plane-webhook-listener`.
+Port `8502` (confirmed free 2026-07-06; re-check at deploy).
+
+### Bind scoping (security pattern NE-03) — REQUIRED at deploy
+
+`HOST` defaults to `0.0.0.0` so the SWAG container can reach this host PM2 process (matching
+`plane-webhook-listener`). `0.0.0.0` alone exposes the port to the whole LAN. Every functional
+endpoint is HMAC-verified fail-closed, so LAN reachability grants no capability without the
+secret — but `GET /health` is unauthenticated (leaks which directions are enabled), and
+defense-in-depth wants the port scoped. At deploy, do **one** of:
+
+1. Set `HOST` to the specific interface/IP SWAG actually reaches the host on (bridge gateway
+   for the SWAG network), not `0.0.0.0`; **or**
+2. Add a `DOCKER-USER` iptables rule restricting `:8502` to the SWAG container's source
+   (see security-patterns NE-10 — UFW does not cover Docker-published ports).
+
+Note forge's hairpin-NAT constraint: containers on `forge-net` cannot reach the host's LAN IP
+(`192.168.1.12`) — confirmed in the sysadmin phase-1 notes — so the reachable path is the
+docker bridge gateway, which is what option 1 should target.
 
 ## SWAG vhost
 
 Expose a public hostname (e.g. `vikunja-hooks.helmforge.me`) proxying to the listener.
 Do **not** put Authentik forward-auth in front of it — GitHub and Vikunja cannot complete a
-browser redirect. The HMAC signatures are the authentication.
+browser redirect. The HMAC signatures are the authentication. Add `client_max_body_size`
+(e.g. `1m`) and a `limit_req` rate-limit zone on the proxied location (pattern NE-01) —
+webhook bodies are small and unauthenticated verification still costs CPU.
 
 ## Vikunja service token (GitHub → task creation)
 
