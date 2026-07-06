@@ -5,6 +5,7 @@ Only issue/PR *opened* events produce a task; everything else is ignored upstrea
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,11 +46,23 @@ def to_task_spec(payload: dict[str, Any], event: str) -> TaskSpec | None:
     body = (res.get("body") or "").strip()
     kind = "PR" if event == "pull_request" else "issue"
 
-    description = (
-        f"<p>Opened by <strong>{author}</strong> as a GitHub {kind}: "
-        f'<a href="{url}">{repo}#{number}</a></p>'
-    )
-    if body:
-        description += f"<hr><p>{body}</p>"
+    # SECURITY (audit F-1): title/body/author come from the issue/PR author — an arbitrary
+    # internet user on a public repo. The description is stored and rendered as HTML in the
+    # Vikunja UI, so escape every free-text field before interpolation rather than relying on
+    # Vikunja's server-side sanitizer as the only barrier. `quote=True` also neutralizes the
+    # `"` that would otherwise break out of the href attribute.
+    e_author = html.escape(author)
+    e_repo = html.escape(repo)
+    e_url = html.escape(url, quote=True)
+    e_body = html.escape(body)
 
+    description = (
+        f"<p>Opened by <strong>{e_author}</strong> as a GitHub {kind}: "
+        f'<a href="{e_url}">{e_repo}#{number}</a></p>'
+    )
+    if e_body:
+        description += f"<hr><p>{e_body}</p>"
+
+    # Task title is plain text in Vikunja (not HTML), but keep the raw title here — escaping
+    # would show literal entities in the title field. The description is the HTML-rendered sink.
     return TaskSpec(title=f"[{repo}#{number}] {title}", description=description, repo=repo)

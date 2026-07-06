@@ -16,3 +16,8 @@ All notable changes to this project are documented here. Format follows
 - Event routing verified against Vikunja docs: completion via `task.updated` (`done: true`),
   reminders via the `task.reminder.fired` / `*.overdue` user-webhook events.
 - CI (lint + matrix tests 3.11–3.13, coverage floor 80%) with SHA-pinned actions.
+
+### Security
+- Escape GitHub-supplied title/body/author before building the Vikunja task-description HTML
+  (audit vikunja-migration-2026-07 finding 1, Medium) — issue authors on public repos are
+  untrusted; do not rely on Vikunja's server-side sanitizer as the only barrier.

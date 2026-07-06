@@ -24,6 +24,29 @@ def test_to_task_spec_from_pull_request():
     assert spec.repo == "org/repo"
 
 
+def test_to_task_spec_escapes_html_from_untrusted_payload():
+    # Audit F-1: title/body come from an arbitrary internet user on a public repo. A crafted
+    # body must not reach the HTML description un-neutralized.
+    payload = {
+        "action": "opened",
+        "issue": {
+            "number": 1,
+            "title": "pwn",
+            "html_url": 'http://gh/1"onmouseover="x',
+            "user": {"login": "attacker"},
+            "body": "<img src=x onerror=alert(1)> <script>evil()</script>",
+        },
+        "repository": {"full_name": "org/repo"},
+    }
+    spec = github.to_task_spec(payload, "issues")
+    assert spec is not None
+    assert "<script>" not in spec.description
+    assert "<img" not in spec.description
+    assert "&lt;script&gt;" in spec.description
+    # The href must not be breakable via a quote in the URL.
+    assert '"onmouseover=' not in spec.description
+
+
 def test_to_task_spec_ignores_non_opened():
     assert github.to_task_spec({"action": "edited", "issue": {}}, "issues") is None
 
