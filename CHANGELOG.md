@@ -21,3 +21,6 @@ All notable changes to this project are documented here. Format follows
 - Escape GitHub-supplied title/body/author before building the Vikunja task-description HTML
   (audit vikunja-migration-2026-07 finding 1, Medium) — issue authors on public repos are
   untrusted; do not rely on Vikunja's server-side sanitizer as the only barrier.
+- Default `HOST` to `127.0.0.1` (was `0.0.0.0`) so the service never defaults to LAN exposure
+  (audit finding 3, NE-03). Deployments needing reverse-proxy reach set `HOST` explicitly; the
+  forge launcher binds the `forge-net` bridge gateway `172.20.1.1` (reachable by SWAG, not the LAN).
