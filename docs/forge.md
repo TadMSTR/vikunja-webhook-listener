@@ -26,22 +26,26 @@ NTFY_TOPIC=<topic>
 
 Port `8502` (confirmed free 2026-07-06; re-check at deploy).
 
-### Bind scoping (security pattern NE-03) — REQUIRED at deploy
+### Bind scoping (security pattern NE-03) — resolved: bind the forge-net gateway
 
-`HOST` defaults to `0.0.0.0` so the SWAG container can reach this host PM2 process (matching
-`plane-webhook-listener`). `0.0.0.0` alone exposes the port to the whole LAN. Every functional
-endpoint is HMAC-verified fail-closed, so LAN reachability grants no capability without the
-secret — but `GET /health` is unauthenticated (leaks which directions are enabled), and
-defense-in-depth wants the port scoped. At deploy, do **one** of:
+The app defaults `HOST` to `127.0.0.1` (fail-safe). On forge, `start.sh` overrides it to
+**`172.20.1.1`** — the host's address on the `forge-net` bridge (`subnet 172.20.1.0/24`,
+`gateway 172.20.1.1`, verified 2026-07-06). Rationale:
 
-1. Set `HOST` to the specific interface/IP SWAG actually reaches the host on (bridge gateway
-   for the SWAG network), not `0.0.0.0`; **or**
-2. Add a `DOCKER-USER` iptables rule restricting `:8502` to the SWAG container's source
-   (see security-patterns NE-10 — UFW does not cover Docker-published ports).
+- SWAG runs on `forge-net` (`172.20.1.29`) and reaches the host at the bridge gateway
+  `172.20.1.1`. Binding there makes the listener reachable by forge-net containers but **not
+  from the LAN** — `172.20.1.1` is only on the docker bridge, never the LAN interface. NE-03
+  is resolved by construction; no iptables rule is required.
+- SWAG's `proxy_pass` must target `http://172.20.1.1:8502` **by IP**, not
+  `vikunja-hooks.helmforge.me` — that hostname resolves to the LAN IP `192.168.1.12` and hits
+  forge's hairpin-NAT (containers on `forge-net` can't reach the host's LAN IP; confirmed in
+  the sysadmin phase-1 notes).
 
-Note forge's hairpin-NAT constraint: containers on `forge-net` cannot reach the host's LAN IP
-(`192.168.1.12`) — confirmed in the sysadmin phase-1 notes — so the reachable path is the
-docker bridge gateway, which is what option 1 should target.
+Residual exposure is other `forge-net` containers being able to reach the port; every
+functional endpoint is HMAC fail-closed, so only `GET /health` (booleans) is reachable without
+a valid signature. If forge-net is ever recreated with a different subnet, update `HOST`.
+Alternative for maximum isolation: run the listener as a container *on* `forge-net` reached by
+name — bigger change than the PM2 pattern, deferred.
 
 ## SWAG vhost
 

@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     ntfy_token: str = ""  # optional bearer for a protected ntfy topic
 
     # --- Server -----------------------------------------------------------
-    host: str = "0.0.0.0"  # reached via SWAG; keep behind the reverse proxy + HMAC
+    # Fail-safe default: loopback only. A deployment that needs to be reached by a
+    # reverse-proxy container sets HOST explicitly to the interface that proxy uses (on forge,
+    # the forge-net bridge gateway — see start.sh / docs/forge.md), never 0.0.0.0.
+    host: str = "127.0.0.1"
     port: int = 8502
     request_timeout: float = 10.0
 

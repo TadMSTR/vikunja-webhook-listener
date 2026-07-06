@@ -19,4 +19,10 @@ export MATRIX_ROOM_ID="${MATRIX_ROOM_ID:-${MATRIX_ROOM_VIKUNJA:-}}"
 export MATRIX_HOMESERVER="${MATRIX_HOMESERVER:-${MATRIX_HOMESERVER_URL:-http://127.0.0.1:8008}}"
 export PORT="${PORT:-8502}"
 
+# NE-03: bind to the forge-net bridge gateway, not 0.0.0.0. This IP (the host's address on
+# the forge-net bridge, subnet 172.20.1.0/24) is reachable by the SWAG container but is NOT
+# on the LAN, so the port is never LAN-exposed. SWAG must proxy_pass to this IP by address,
+# not the helmforge.me hostname (which resolves to the LAN IP and hits forge's hairpin-NAT).
+export HOST="${HOST:-172.20.1.1}"
+
 exec /opt/venvs/vikunja-webhook-listener/bin/vikunja-webhook-listener
